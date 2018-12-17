@@ -55,6 +55,9 @@ def try_post(url, data, headers, timeout, maxiter):
         raise requests.exceptions.ConnectionError
     return r
 
+# converting string area to numeric
+def clean_area(string):
+    
 
 logname = 'log_' + datetime.datetime.now().strftime("%Y%m%d")
 logging.basicConfig(level=logging.DEBUG,
