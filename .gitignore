@@ -27,3 +27,4 @@ config.py
 *.log
 __pycache__
 parse areas of old data.py
+queries.sql
