@@ -10,6 +10,7 @@ from time import sleep
 from random import randint
 import datetime
 import logging
+import re
 
 import pandas as pd
 from sqlalchemy import create_engine
