@@ -10,6 +10,7 @@ from time import sleep
 from random import randint
 import datetime
 import logging
+import re
 
 import pandas as pd
 from sqlalchemy import create_engine
@@ -55,9 +56,37 @@ def try_post(url, data, headers, timeout, maxiter):
         raise requests.exceptions.ConnectionError
     return r
 
+
 # converting string area to numeric
-def clean_area(string):
+def area_to_sqft(string):
+    re_area = re.compile("^([0-9\.]+)\s*x?\s*([0-9\.]*)\s*(ac|sqft|FT|m2|hec)?$", re.I)
+    match = re_area.search(string)
+    if not match:
+        return None
+    res = re_area.search(string).groups()
+    if res[1] != '':
+        value = float(res[0]) * float(res[1])
+    else:
+        value = float(res[0])
+    if res[2] is not None:
+        if res[2].lower() == 'ac':
+            return value * 43560
+        if res[2].lower() == 'm2':
+            return value * 10.76
+        if res[2].lower() == 'hec':
+            return value * 107639
+    return value
     
+#area_to_sqft("22.99 ac")
+#area_to_sqft("6534 m2")
+#area_to_sqft("0 x 0.00")
+#area_to_sqft("0 x 0")
+#area_to_sqft("0 x")
+#area_to_sqft("1 x")
+#area_to_sqft("1 ac")
+#area_to_sqft("100 x 350")
+#area_to_sqft("50 x 163.8 FT")
+#area_to_sqft("8502 sqft")
 
 logname = 'log_' + datetime.datetime.now().strftime("%Y%m%d")
 logging.basicConfig(level=logging.DEBUG,
@@ -209,6 +238,12 @@ mysql_url = "mysql://" + \
             
 engine = create_engine(mysql_url)
 df=pd.DataFrame.from_records(flat, columns=keys)
-df.to_sql('listings',con=engine, if_exists='append')
+
+#parse areas
+df['Building_SizeInterior_SqFt'] = df['Building_SizeInterior'].astype('str').apply(area_to_sqft)
+df['Land_SizeTotal_SqFt'] = df['Land_SizeTotal'].astype('str').apply(area_to_sqft)
+
+df.to_sql('listings2',con=engine, if_exists='append')
 
 logging.info(str(len(df)) + " records added")
+
