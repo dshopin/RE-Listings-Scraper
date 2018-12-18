@@ -10,7 +10,6 @@ from time import sleep
 from random import randint
 import datetime
 import logging
-import re
 
 import pandas as pd
 from sqlalchemy import create_engine
@@ -185,9 +184,6 @@ if __name__ == '__main__':
             sleep(randint(1,5))
         south += 0.1
     
-            
-    
-    
     # deduplicate
     unique = []
     for l in listings:
@@ -248,4 +244,3 @@ if __name__ == '__main__':
     df.to_sql('listings',con=engine, if_exists='append')
     
     logging.info(str(len(df)) + " records added")
-
