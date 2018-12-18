@@ -243,7 +243,7 @@ df=pd.DataFrame.from_records(flat, columns=keys)
 df['Building_SizeInterior_SqFt'] = df['Building_SizeInterior'].astype('str').apply(area_to_sqft)
 df['Land_SizeTotal_SqFt'] = df['Land_SizeTotal'].astype('str').apply(area_to_sqft)
 
-df.to_sql('listings2',con=engine, if_exists='append')
+df.to_sql('listings',con=engine, if_exists='append')
 
 logging.info(str(len(df)) + " records added")
 
