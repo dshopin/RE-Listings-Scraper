@@ -238,6 +238,8 @@ if __name__ == '__main__':
     engine = create_engine(mysql_url)
     df=pd.DataFrame.from_records(flat, columns=keys)
     
+    
+    
     #parse areas
     df['Building_SizeInterior_SqFt'] = df['Building_SizeInterior'].astype('str').apply(area_to_sqft)
     df['Land_SizeTotal_SqFt'] = df['Land_SizeTotal'].astype('str').apply(area_to_sqft)
