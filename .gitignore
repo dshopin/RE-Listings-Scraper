@@ -28,3 +28,4 @@ config.py
 __pycache__
 parse areas of old data.py
 queries.sql
+mysql/db dump/dump_20181218.csv
