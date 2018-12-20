@@ -13,7 +13,7 @@ import logging
 import re
 
 import pandas as pd
-from sqlalchemy import create_engine
+import sqlalchemy as sq
 
 from config import config
 
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     #add load date
     for d in flat:
         d['DownloadDate'] = datetime.datetime.now().strftime("%d-%m-%Y")
-    
+            
     keys = ['Id',
             'MlsNumber',
             'Building_BathroomTotal',
@@ -235,15 +235,69 @@ if __name__ == '__main__':
             'DownloadDate']
     
                 
-    engine = create_engine(mysql_url)
-    df=pd.DataFrame.from_records(flat, columns=keys)
     
+    df=pd.DataFrame.from_records(flat, columns=keys) 
     
     
     #parse areas
     df['Building_SizeInterior_SqFt'] = df['Building_SizeInterior'].astype('str').apply(area_to_sqft)
     df['Land_SizeTotal_SqFt'] = df['Land_SizeTotal'].astype('str').apply(area_to_sqft)
     
-    df.to_sql('listings',con=engine, if_exists='append', index=False)
+      
+    engine = sq.create_engine(mysql_url)
+    
+    df.to_sql('listings', con=engine, if_exists='append', index=False)
     
     logging.info(str(len(df)) + " records added")
+    
+    
+    # Incremental table update
+    
+    df['StartDate'] = datetime.date.today()
+    df['EndDate'] = None
+    df = df.drop('DownloadDate', axis = 1)
+    
+    df.to_sql('upd', con=engine, if_exists='replace', index=False,
+              dtype={'StartDate':sq.DateTime(), 'EndDate':sq.DateTime()})
+    
+    engine.execute(sq.text("call add_incremental(CURDATE())").execution_options(autocommit=True))
+    
+    
+    # stats
+    new_listings = '''
+    select Property_Address_AddressText, Id, MlsNumber
+    from listings_inc
+    group by Property_Address_AddressText, Id, MlsNumber
+    having max(StartDate) = curdate() and max(EndDate) is Null;'''
+    
+    updated_listings = '''
+    select Property_Address_AddressText, Id, MlsNumber
+    from listings_inc
+    group by Property_Address_AddressText, Id, MlsNumber
+    having max(StartDate) = curdate() and max(EndDate) = curdate();'''
+    
+    revived_listings = '''
+    select Property_Address_AddressText, Id, MlsNumber
+    from listings_inc
+    group by Property_Address_AddressText, Id, MlsNumber
+    having max(StartDate) = curdate() and max(EndDate) < curdate();'''
+    
+    withdrawn_listings = '''
+    select Property_Address_AddressText, Id, MlsNumber
+    from listings_inc
+    group by Property_Address_AddressText, Id, MlsNumber
+    having max(EndDate) = curdate() and max(StartDate) < curdate();'''
+    
+    
+                   
+    logging.info(str(len(engine.execute(new_listings).fetchall())) + ' new listings')
+    logging.info(str(len(engine.execute(updated_listings).fetchall())) + ' updated listings')
+    logging.info(str(len(engine.execute(revived_listings).fetchall())) + ' revived listings')
+    logging.info(str(len(engine.execute(withdrawn_listings).fetchall())) + ' withdrawn listings')
+
+    
+    
+    
+    
+    
+    
