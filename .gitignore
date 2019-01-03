@@ -24,7 +24,8 @@ $RECYCLE.BIN/
 
 remax.py
 config.py
-*.log
+/log/*
+/data/*
 __pycache__
 parse areas of old data.py
 queries.sql
