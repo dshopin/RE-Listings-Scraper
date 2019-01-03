@@ -27,4 +27,3 @@ config.py
 /log/*
 /data/
 __pycache__
-queries.sql
