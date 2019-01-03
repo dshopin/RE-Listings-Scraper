@@ -243,7 +243,8 @@ if __name__ == '__main__':
     df['Building_SizeInterior_SqFt'] = df['Building_SizeInterior'].astype('str').apply(area_to_sqft)
     df['Land_SizeTotal_SqFt'] = df['Land_SizeTotal'].astype('str').apply(area_to_sqft)
     
-      
+    
+    # 1). Snapshot table update
     engine = sq.create_engine(mysql_url)
     
     df.to_sql('listings', con=engine, if_exists='append', index=False)
@@ -251,7 +252,7 @@ if __name__ == '__main__':
     logging.info(str(len(df)) + " records added")
     
     
-    # Incremental table update
+    # 2). Incremental table update
     
     df['StartDate'] = datetime.date.today()
     df['EndDate'] = None
