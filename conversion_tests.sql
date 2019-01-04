@@ -1,4 +1,4 @@
-# Tests after conversion from the full table to incremental
+# Testing if incremental table is correct
 
 use realtor;
 
@@ -7,22 +7,26 @@ select count(*) from listings_inc;
 ### Internal consistency ###
 
 -- no empty StartDates
-select Property_Address_AddressText, Id, MlsNumber, count(StartDate), count(*)
+select Property_Address_AddressText, count(StartDate), count(*)
 from listings_inc
-group by Property_Address_AddressText, Id, MlsNumber
+group by Property_Address_AddressText
 having count(StartDate) < count(*);
 
 -- only unique StartDates
-select Property_Address_AddressText, Id, MlsNumber, StartDate, count(*)
+select Property_Address_AddressText, StartDate, count(*)
 from listings_inc
-group by Property_Address_AddressText, Id, MlsNumber, StartDate
+group by Property_Address_AddressText, StartDate
 having count(*) > 1;
 
+-- select * from listings
+-- where Property_Address_AddressText = '1373-1375 MAPLE STREET|Vancouver, British Columbia V6J3S1'
+-- order by DownloadDate;
+
 -- only 0 or 1 records with empty EndDate
-select Property_Address_AddressText, Id, MlsNumber, count(*)
+select Property_Address_AddressText, count(*)
 from listings_inc
 where EndDate is NULL
-group by Property_Address_AddressText, Id, MlsNumber
+group by Property_Address_AddressText
 having count(*) > 1;
 
 -- all EndDate > StartDate or EndDate is NULL
@@ -35,11 +39,9 @@ select t1.*
 from listings_inc t1
 inner join listings_inc t2
 on  t1.Property_Address_AddressText=t2.Property_Address_AddressText
-	and t1.Id = t2.Id
-    and t1.MlsNumber = t2.MlsNumber
-    and t1.StartDate <> t2.StartDate
+	and t1.StartDate <> t2.StartDate
     and t2.StartDate < t1.EndDate and t2.EndDate > t1.StartDate
-order by Property_Address_AddressText, Id, MlsNumber;
+order by Property_Address_AddressText;
 
 
 -- select * from listings_inc
@@ -50,17 +52,15 @@ order by Property_Address_AddressText, Id, MlsNumber;
 
 ### Consistency with original full table ### 
 
--- all listings from full are in incremental
+-- all listings from full are in incremental, except those in `duplicates`
 select f.*
-from listings f
-left join (select distinct Property_Address_AddressText, Id, MlsNumber from listings_inc) i
+from (select distinct Property_Address_AddressText from listings) f
+left join (select distinct Property_Address_AddressText from listings_inc) i
 on i.Property_Address_AddressText=f.Property_Address_AddressText
-	and i.Id = f.Id
-    and i.MlsNumber = f.MlsNumber
-where i.Id is NULL;
+where i.Property_Address_AddressText is NULL;
 
 
--- Those that are active in incremental, should have the latest date in the full table
+-- Those that are active in incremental, should have the latest date in the snapshot table
 select @maxdate := max(str_to_date(DownloadDate, '%d-%m-%Y')) from listings;
 
 select i.*, f.DownloadDate
@@ -111,6 +111,24 @@ order by i.Property_Address_AddressText, i.Id, i.MlsNumber, i.StartDate
 ;
     
 drop table if exists rownums;
+
+
+-- Each listing should have the same number of active days in both tables
+select i.*, s.days_snap
+from
+(select Property_Address_AddressText,
+		sum(datediff(if(EndDate is null, adddate(curdate(), interval 1 day) , EndDate), StartDate)) as days_inc
+from listings_inc
+group by Property_Address_AddressText) i
+inner join
+(select Property_Address_AddressText, count(*) as days_snap
+from listings
+group by Property_Address_AddressText) s
+on i.Property_Address_AddressText = s.Property_Address_AddressText
+having days_inc <> days_snap
+;
+
+
 
 
 

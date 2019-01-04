@@ -27,13 +27,35 @@ BEGIN
     ALTER TABLE listings_copy CHANGE COLUMN DownloadDate StartDate DATETIME;
 	ALTER TABLE listings_copy ADD COLUMN EndDate DATETIME DEFAULT NULL AFTER StartDate;
     
+    
+    
+    # separate addresses that have multiple records for the same date (just 3 exist so far)
+    insert into duplicates(Property_Address_AddressText, StartDate, `count(*)`)
+	select Property_Address_AddressText, StartDate, count(*)
+	from listings_copy
+	group by Property_Address_AddressText, StartDate
+	having count(*) > 1;
+    
+    delete from listings_copy
+	where  Property_Address_AddressText in
+		(select distinct Property_Address_AddressText
+		from 
+			(select Property_Address_AddressText
+			from listings_copy
+			group by Property_Address_AddressText, StartDate
+			having count(*) > 1) t);
+            
+            
+    
         
 	SELECT @firstday := MIN(StartDate) FROM listings_copy;
 	SELECT @lastday := MAX(StartDate) FROM listings_copy;	
 
 	CREATE TABLE listings_inc AS
 		SELECT * FROM listings_copy
-		WHERE StartDate = @firstday; 
+		WHERE StartDate = @firstday;
+        
+	CREATE INDEX address ON listings_inc (Property_Address_AddressText(10));
     
     SET @currday = DATE_ADD(@firstday, INTERVAL 1 DAY);
 	REPEAT
@@ -44,6 +66,8 @@ BEGIN
             CREATE TEMPORARY TABLE upd AS
 				SELECT * FROM listings_copy
 				WHERE StartDate = @currday;
+                
+			CREATE INDEX address ON upd (Property_Address_AddressText(10));
                 
 			CALL realtor.add_incremental(@currday);
 

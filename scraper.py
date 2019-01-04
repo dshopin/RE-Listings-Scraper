@@ -37,16 +37,6 @@ def flatten(d, parent_key='', sep='_'):
             res.update({new_key:v})
     return res
 
-# searching for dictionaries with the same key value
-def many_per_key(key, arr):
-    ids = []
-    many = []
-    for l in arr:
-        if l[key] not in ids:
-            ids.append(l[key])
-        else:
-            many.append(l[key])
-    return many
 
 #POST request with max number of retrials
 def try_post(url, data, headers, timeout, maxiter):
@@ -84,16 +74,6 @@ def area_to_sqft(string):
             return value * 107639
     return value
     
-#area_to_sqft("22.99 ac")
-#area_to_sqft("6534 m2")
-#area_to_sqft("0 x 0.00")
-#area_to_sqft("0 x 0")
-#area_to_sqft("0 x")
-#area_to_sqft("1 x")
-#area_to_sqft("1 ac")
-#area_to_sqft("100 x 350")
-#area_to_sqft("50 x 163.8 FT")
-#area_to_sqft("8502 sqft")
 
 if __name__ == '__main__':
     logname = 'log_' + datetime.datetime.now().strftime("%Y%m%d")
@@ -192,13 +172,9 @@ if __name__ == '__main__':
             unique.append(l)
     logging.info(str(len(listings) - len(unique)) + " duplicates deleted")
     
-    
-    conflicts = many_per_key('Id', unique)
-    logging.info("Number of conflicts: "+str(len(conflicts)))
-    if len(conflicts) > 0:
-        logging.warning("Ids with multiple listings: "+str(conflicts))
-    
-    # keep only necessary fields
+
+   
+    # keep only neccessary fields
     details = []
     for l in unique:
         details.append({'Id':l['Id'],
@@ -233,8 +209,7 @@ if __name__ == '__main__':
             'RelativeDetailsURL',
             'Building_StoriesTotal',
             'DownloadDate']
-    
-                
+             
     
     df=pd.DataFrame.from_records(flat, columns=keys) 
     
@@ -244,22 +219,41 @@ if __name__ == '__main__':
     df['Land_SizeTotal_SqFt'] = df['Land_SizeTotal'].astype('str').apply(area_to_sqft)
     
     
-    # 1). Snapshot table update
-    engine = sq.create_engine(mysql_url)
     
+    
+    engine = sq.create_engine(mysql_url)    
+    
+    # 1). Snapshot table update    
     df.to_sql('listings', con=engine, if_exists='append', index=False)
     
-    logging.info(str(len(df)) + " records added")
+    logging.info(str(len(df)) + " records added to the snapshot table")
     
     
     # 2). Incremental table update
+    
+    # separate bad addresses with multiple records to another table
+    dups = df.groupby('Property_Address_AddressText').size()
+    dups = dups[dups>1]
+    
+    df = df[~df['Property_Address_AddressText'].isin(dups.index)]
+    
+    dups_df = pd.DataFrame({'Property_Address_AddressText':dups.index,
+                            'StartDate':datetime.date.today(),
+                            'count(*)':dups})
+        
+    dups_df.to_sql('duplicates', con=engine, if_exists='append', index=False,
+                   dtype={'StartDate':sq.DateTime()})
+    
     
     df['StartDate'] = datetime.date.today()
     df['EndDate'] = None
     df = df.drop('DownloadDate', axis = 1)
     
+    
     df.to_sql('upd', con=engine, if_exists='replace', index=False,
               dtype={'StartDate':sq.DateTime(), 'EndDate':sq.DateTime()})
+    
+    engine.execute(sq.text("CREATE INDEX address ON upd(Property_Address_AddressText(10))").execution_options(autocommit=True))
     
     engine.execute(sq.text("call add_incremental(CURDATE())").execution_options(autocommit=True))
     

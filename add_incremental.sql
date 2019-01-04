@@ -20,34 +20,31 @@ BEGIN
 
 	# lookup table of listings that are not in the new data
 	CREATE TEMPORARY TABLE toend AS
-		SELECT t.Property_Address_AddressText, t.Id, t.MlsNumber
+		SELECT t.Property_Address_AddressText
 		FROM listings_inc t
 		LEFT JOIN upd
 		ON t.Property_Address_AddressText = upd.Property_Address_AddressText
-		AND t.Id = upd.Id AND t.MlsNumber = upd.MlsNumber
 		WHERE upd.Id IS NULL AND t.EndDate IS NULL;
 	
-
+    CREATE INDEX address ON toend (Property_Address_AddressText(10));
 
 	#lookup table of new records
 	CREATE TEMPORARY TABLE toadd AS
-		SELECT	upd.Property_Address_AddressText, upd.Id, upd.MlsNumber
+		SELECT	upd.Property_Address_AddressText
 		FROM listings_inc t
 		RIGHT JOIN upd
 		ON t.Property_Address_AddressText = upd.Property_Address_AddressText
-		AND t.Id = upd.Id AND t.MlsNumber = upd.MlsNumber
-		WHERE t.Id IS NULL AND t.EndDate IS NULL;
+			AND t.EndDate IS NULL
+		WHERE t.Id IS NULL;
         
-
-
-
+	CREATE INDEX address ON toadd (Property_Address_AddressText(10));
+        
 	# lookup table of listings to update
 	CREATE TEMPORARY TABLE toupd AS
-		SELECT	upd.Property_Address_AddressText, upd.Id, upd.MlsNumber
+		SELECT	upd.Property_Address_AddressText
 		FROM listings_inc t
 		INNER JOIN upd
 		ON t.Property_Address_AddressText = upd.Property_Address_AddressText
-		AND t.Id = upd.Id AND t.MlsNumber = upd.MlsNumber
 		WHERE t.EndDate IS NULL AND
 			  (t.Building_BathroomTotal <> upd.Building_BathroomTotal OR
 			  t.Building_Bedrooms <> upd.Building_Bedrooms OR
@@ -61,7 +58,11 @@ BEGIN
 			  t.Property_OwnershipType <> upd.Property_OwnershipType OR
 			  t.Land_SizeTotal <> upd.Land_SizeTotal OR
 			  t.RelativeDetailsURL <> upd.RelativeDetailsURL OR
-			  t.Building_StoriesTotal <> upd.Building_StoriesTotal);
+			  t.Building_StoriesTotal <> upd.Building_StoriesTotal OR
+              t.Id <> upd.Id OR
+              t.MlsNumber <> upd.MlsNumber);
+              
+	CREATE INDEX address ON toupd (Property_Address_AddressText(10));
 
 
 
@@ -71,8 +72,7 @@ BEGIN
 		WHERE EXISTS (SELECT 1
 					  FROM toend
 					  WHERE t.Property_Address_AddressText = toend.Property_Address_AddressText
-							AND t.Id = toend.Id AND t.MlsNumber = toend.MlsNumber
-							AND t.EndDate IS NULL);
+                      AND t.EndDate IS NULL);
 
 	# adding new records to t
 	INSERT INTO listings_inc (`Id`,`MlsNumber`,`Building_BathroomTotal`,`Building_Bedrooms`,`Building_SizeInterior`,
@@ -88,8 +88,7 @@ BEGIN
 		FROM upd
 		WHERE EXISTS (SELECT 1
 					  FROM toadd
-					  WHERE upd.Property_Address_AddressText = toadd.Property_Address_AddressText
-							AND upd.Id = toadd.Id AND upd.MlsNumber = toadd.MlsNumber);
+					  WHERE upd.Property_Address_AddressText = toadd.Property_Address_AddressText);
 
 
 	### updating changed listings ###
@@ -99,7 +98,6 @@ BEGIN
 		WHERE EXISTS (SELECT 1
 					  FROM toupd
 					  WHERE t.Property_Address_AddressText = toupd.Property_Address_AddressText
-							AND t.Id = toupd.Id AND t.MlsNumber = toupd.MlsNumber
 							AND t.EndDate IS NULL);                        
 	# 2) adding changed records
 	INSERT INTO listings_inc (`Id`,`MlsNumber`,`Building_BathroomTotal`,`Building_Bedrooms`,`Building_SizeInterior`,
@@ -115,8 +113,7 @@ BEGIN
 		FROM upd
 		WHERE EXISTS (SELECT 1
 					  FROM toupd
-					  WHERE upd.Property_Address_AddressText = toupd.Property_Address_AddressText
-							AND upd.Id = toupd.Id AND upd.MlsNumber = toupd.MlsNumber);
+					  WHERE upd.Property_Address_AddressText = toupd.Property_Address_AddressText);
 
     DROP TEMPORARY TABLE IF EXISTS toend;
 	DROP TEMPORARY TABLE IF EXISTS toadd;
