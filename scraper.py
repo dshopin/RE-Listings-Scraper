@@ -228,6 +228,10 @@ if __name__ == '__main__':
     
     logging.info(str(len(df)) + " records added to the snapshot table")
     
+    # delete old records
+    engine.execute(sq.text('''delete from listings
+                           where str_to_date(DownloadDate, '%d-%m-%Y') < date_add(now(), interval - 10 day);''').execution_options(autocommit=True))
+    
     
     # 2). Incremental table update
     
