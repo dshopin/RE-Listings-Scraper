@@ -57,6 +57,7 @@ select d.selected_date,
 from dates d
 left join rownums r
 on d.selected_date >= r.StartDate and (d.selected_date < r.EndDate or r.EndDate is null)
-group by d.selected_date;
+group by d.selected_date
+order by d.selected_date;
 
 
