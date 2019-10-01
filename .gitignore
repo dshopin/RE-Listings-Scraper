@@ -22,8 +22,8 @@ $RECYCLE.BIN/
 # Operating System Files
 # =========================
 
-remax.py
-config.py
 /log/*
-/data/
+
 __pycache__
+config.py
+remax.py
