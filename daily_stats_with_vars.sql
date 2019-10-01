@@ -26,6 +26,8 @@ select Property_Address_AddressText, StartDate, EndDate, price,
 from (select *,
 	  cast(replace(replace(Property_Price,'$',''),',','') as decimal(10,2)) as price
       from listings_inc
+       -- where Property_Address_Latitude between 49.293457 and 49.308352
+	   -- and Property_Address_Longitude between -122.767648 and -122.732808
 	  order by Property_Address_AddressText, StartDate) t
 )
 ,
